@@ -13,6 +13,27 @@ interface Book {
   publication_year: number;
 }
 
+async function getBooks() {
+  // Grab a connection from the database pool
+  const connection = await pool.connect();
+
+  try {
+    // Run the SQL query
+    const result = await connection.queryObject<Book>`
+          SELECT isbn, title, publication_year FROM books
+        `;
+
+    // Return the result as JSON
+    return new Response(JSON.stringify(result.rows, null, 2), {
+      headers: { "content-type": "application/json" },
+    });
+  }
+  finally {
+    // Release the connection back into the pool
+    connection.release();
+  }
+}
+
 
 serve(async (req: Request) => {
   // Parse the URL and check that the requested endpoint is /.
@@ -27,17 +48,7 @@ serve(async (req: Request) => {
   try {
     switch (req.method) {
       case "GET": { // This is a GET request. Return a list of all books.
-        // Grab a connection from the database pool
-        const connection = await pool.connect();
-        // Run the SQL query
-        const result = await connection.queryObject<Book>`
-          SELECT isbn, title, publication_year FROM books
-        `;
-
-        // Return the result as JSON
-        return new Response(JSON.stringify(result.rows, null, 2), {
-          headers: { "content-type": "application/json" },
-        });
+        return getBooks();
       }
       default: // If this is not a GET return a 405 response.
         return new Response("Method Not Allowed", { status: 405 });
@@ -48,8 +59,5 @@ serve(async (req: Request) => {
     return new Response(`Internal Server Error\n\n${err.message}`, {
       status: 500,
     });
-  } finally {
-    // Release the connection back into the pool
-    connection.release();
   }
 });
