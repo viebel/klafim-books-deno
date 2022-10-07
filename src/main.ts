@@ -4,8 +4,8 @@ import * as postgres from "https://deno.land/x/postgres@v0.14.0/mod.ts";
 // Get the connection string from the environment variable "DATABASE_URL"
 const databaseUrl = Deno.env.get("DATABASE_URL")!;
 
-// Create a database pool with three connections that are lazily established
-const pool = new postgres.Pool(databaseUrl, 3, true);
+// Create a database client
+const client = new postgres.Client(databaseUrl);
 
 interface Book {
   isbn: string;
@@ -14,24 +14,16 @@ interface Book {
 }
 
 async function getBooks() {
-  // Grab a connection from the database pool
-  const connection = await pool.connect();
-
-  try {
-    // Run the SQL query
-    const result = await connection.queryObject<Book>`
+  // Run the SQL query
+  const result = await client.queryObject<Book>`
           SELECT isbn, title, publication_year FROM books
         `;
 
-    // Return the result as JSON
-    return new Response(JSON.stringify(result.rows, null, 2), {
-      headers: { "content-type": "application/json" },
-    });
-  }
-  finally {
-    // Release the connection back into the pool
-    connection.release();
-  }
+  // Return the result as JSON
+  return new Response(JSON.stringify(result.rows, null, 2), {
+    headers: { "content-type": "application/json" },
+  });
+
 }
 
 
